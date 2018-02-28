@@ -149,9 +149,14 @@ final class RealCall implements Call {
       return RealCall.this;
     }
 
-    @Override protected void execute() {
+    /**
+     * 父类runnable中通过模板方法调用
+     */
+    @Override
+    protected void execute() {
       boolean signalledCallback = false;
       try {
+        // OkHttp的核心
         Response response = getResponseWithInterceptorChain();
         if (retryAndFollowUpInterceptor.isCanceled()) {
           signalledCallback = true;
@@ -169,6 +174,7 @@ final class RealCall implements Call {
           responseCallback.onFailure(RealCall.this, e);
         }
       } finally {
+        // 很重要的一个方法
         client.dispatcher().finished(this);
       }
     }

@@ -63,8 +63,16 @@ public final class Dispatcher {
   public Dispatcher() {
   }
 
+  /**
+   * 一个单例创建线程池
+   * @return
+   */
   public synchronized ExecutorService executorService() {
     if (executorService == null) {
+      /**
+       * 设定Integer.MAX_VALUE对整个的行为影响不大，
+       * 通过队列控制上线为64
+       */
       executorService = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60, TimeUnit.SECONDS,
           new SynchronousQueue<Runnable>(), Util.threadFactory("OkHttp Dispatcher", false));
     }
@@ -156,6 +164,9 @@ public final class Dispatcher {
     }
   }
 
+  /**
+   * 调整异步请求的队列
+   */
   private void promoteCalls() {
     if (runningAsyncCalls.size() >= maxRequests) return; // Already running max capacity.
     if (readyAsyncCalls.isEmpty()) return; // No ready calls to promote.
@@ -173,7 +184,10 @@ public final class Dispatcher {
     }
   }
 
-  /** Returns the number of running calls that share a host with {@code call}. */
+  /**
+   * Returns the number of running calls that share a host with {@code call}.
+   * 判断当前正在执行的网络请求中，与当前的AsyncCall属于同一个host的网络请求的数量
+   * */
   private int runningCallsForHost(AsyncCall call) {
     int result = 0;
     for (AsyncCall c : runningAsyncCalls) {
@@ -202,8 +216,17 @@ public final class Dispatcher {
         int runningCallsCount;
         Runnable idleCallback;
         synchronized (this) {
-            if (!calls.remove(call)) throw new AssertionError("Call wasn't in-flight!");
-            if (promoteCalls) promoteCalls();
+            // 方法1：从runningSyncCalls队列中移除当前请求
+            if (!calls.remove(call)) {
+              throw new AssertionError("Call wasn't in-flight!");
+            }
+
+            // 方法2：调整整个异步请求任务队列
+            if (promoteCalls) {
+              promoteCalls();
+            }
+
+            // 方法3：重新计算运行的线程的数量
             runningCallsCount = runningCallsCount();
             idleCallback = this.idleCallback;
         }
