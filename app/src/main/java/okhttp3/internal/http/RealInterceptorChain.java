@@ -47,6 +47,20 @@ public final class RealInterceptorChain implements Interceptor.Chain {
   private final int writeTimeout;
   private int calls;
 
+  /**
+   * 创建拦截器链
+   * @param interceptors
+   * @param streamAllocation
+   * @param httpCodec
+   * @param connection
+   * @param index
+   * @param request
+   * @param call
+   * @param eventListener
+   * @param connectTimeout
+   * @param readTimeout
+   * @param writeTimeout
+   */
   public RealInterceptorChain(List<Interceptor> interceptors, StreamAllocation streamAllocation,
       HttpCodec httpCodec, RealConnection connection, int index, Request request, Call call,
       EventListener eventListener, int connectTimeout, int readTimeout, int writeTimeout) {
@@ -121,6 +135,15 @@ public final class RealInterceptorChain implements Interceptor.Chain {
     return proceed(request, streamAllocation, httpCodec, connection);
   }
 
+  /**
+   * 执行网络请求的核心方法
+   * @param request
+   * @param streamAllocation
+   * @param httpCodec
+   * @param connection
+   * @return
+   * @throws IOException
+   */
   public Response proceed(Request request, StreamAllocation streamAllocation, HttpCodec httpCodec,
       RealConnection connection) throws IOException {
     if (index >= interceptors.size()) throw new AssertionError();
@@ -144,6 +167,8 @@ public final class RealInterceptorChain implements Interceptor.Chain {
         connection, index + 1, request, call, eventListener, connectTimeout, readTimeout,
         writeTimeout);
     Interceptor interceptor = interceptors.get(index);
+
+    // 调用下一个拦截器
     Response response = interceptor.intercept(next);
 
     // Confirm that the next interceptor made its required call to chain.proceed().
