@@ -39,11 +39,11 @@ import okhttp3.internal.Util;
  * of calls concurrently.
  */
 public final class Dispatcher {
+
     private int maxRequests = 64;
     private int maxRequestsPerHost = 5;
-    private
-    @Nullable
-    Runnable idleCallback;
+
+    private @Nullable Runnable idleCallback;
 
     /**
      * Executes calls. Created lazily.
