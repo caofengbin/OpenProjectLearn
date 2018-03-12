@@ -81,7 +81,9 @@ final class RealCall implements Call {
             client.dispatcher().executed(this);
             // 调用拦截器链
             Response result = getResponseWithInterceptorChain();
-            if (result == null) throw new IOException("Canceled");
+            if (result == null) {
+                throw new IOException("Canceled");
+            }
             return result;
         } catch (IOException e) {
             eventListener.callFailed(this, e);
@@ -139,6 +141,7 @@ final class RealCall implements Call {
 
     /**
      * 异步请求任务被封装为AsyncCall
+     * 实际上就是一个runnable
      */
     final class AsyncCall extends NamedRunnable {
         private final Callback responseCallback;
@@ -167,7 +170,7 @@ final class RealCall implements Call {
         protected void execute() {
             boolean signalledCallback = false;
             try {
-                // OkHttp的核心
+                // OkHttp的核心，调用拦截器栏，得到相应的响应信息Response
                 Response response = getResponseWithInterceptorChain();
                 if (retryAndFollowUpInterceptor.isCanceled()) {
                     signalledCallback = true;
@@ -206,7 +209,8 @@ final class RealCall implements Call {
     }
 
     /**
-     * 请求的核心流程
+     * 请求的核心流程，执行拦截器链
+     *
      * @return
      * @throws IOException
      */

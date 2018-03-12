@@ -32,6 +32,8 @@ import okhttp3.RealCall.AsyncCall;
 import okhttp3.internal.Util;
 
 /**
+ * OkHttp的核心类之一，调度器的具体实现，
+ * 关于异步请求的调用方式，实现了一个生产者消费者的模型。
  * Policy on when async requests are executed.
  * <p>
  * <p>Each dispatcher uses an {@link ExecutorService} to run calls internally. If you supply your
@@ -43,7 +45,9 @@ public final class Dispatcher {
     private int maxRequests = 64;
     private int maxRequestsPerHost = 5;
 
-    private @Nullable Runnable idleCallback;
+    private
+    @Nullable
+    Runnable idleCallback;
 
     /**
      * Executes calls. Created lazily.
@@ -65,6 +69,7 @@ public final class Dispatcher {
     private final Deque<AsyncCall> runningAsyncCalls = new ArrayDeque<>();
 
     /**
+     * 同步请求队列
      * Running synchronous calls. Includes canceled calls that haven't finished yet.
      */
     private final Deque<RealCall> runningSyncCalls = new ArrayDeque<>();
@@ -152,7 +157,7 @@ public final class Dispatcher {
     }
 
     /**
-     * 异步请求通过dispatcher做的操作
+     * 异步请求通过dispatcher做的操作(dispatcher类的核心方法之一)
      *
      * @param call 异步请求call
      */
@@ -214,7 +219,9 @@ public final class Dispatcher {
         int result = 0;
         for (AsyncCall c : runningAsyncCalls) {
             if (c.get().forWebSocket) continue;
-            if (c.host().equals(call.host())) result++;
+            if (c.host().equals(call.host())) {
+                result++;
+            }
         }
         return result;
     }
