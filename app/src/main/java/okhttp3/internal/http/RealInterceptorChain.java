@@ -51,13 +51,13 @@ public final class RealInterceptorChain implements Interceptor.Chain {
     /**
      * 创建拦截器链
      *
-     * @param interceptors
-     * @param streamAllocation
-     * @param httpCodec
-     * @param connection
-     * @param index
-     * @param request
-     * @param call
+     * @param interceptors     拦截器List
+     * @param streamAllocation 为null
+     * @param httpCodec        为null
+     * @param connection       为null
+     * @param index            从0开始执行
+     * @param request          originalRequest
+     * @param call             基于Request创建的Call
      * @param eventListener
      * @param connectTimeout
      * @param readTimeout
@@ -179,6 +179,7 @@ public final class RealInterceptorChain implements Interceptor.Chain {
         RealInterceptorChain next = new RealInterceptorChain(interceptors, streamAllocation, httpCodec,
                 connection, index + 1, request, call, eventListener, connectTimeout, readTimeout,
                 writeTimeout);
+
         Interceptor interceptor = interceptors.get(index);
 
         // 调用下一个拦截器

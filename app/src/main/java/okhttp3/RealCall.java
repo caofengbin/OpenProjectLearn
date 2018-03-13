@@ -31,7 +31,11 @@ import okhttp3.internal.platform.Platform;
 
 import static okhttp3.internal.platform.Platform.INFO;
 
+/**
+ * 实际网络请求对象的实现类RealCall
+ */
 final class RealCall implements Call {
+
     final OkHttpClient client;
     final RetryAndFollowUpInterceptor retryAndFollowUpInterceptor;
 
@@ -69,6 +73,9 @@ final class RealCall implements Call {
         return originalRequest;
     }
 
+    /**
+     * 同步请求的执行，通过阻塞式的方式进行
+     */
     @Override
     public Response execute() throws IOException {
         synchronized (this) {
@@ -78,6 +85,7 @@ final class RealCall implements Call {
         captureCallStackTrace();
         eventListener.callStart(this);
         try {
+            // 加入到同步请求队列中
             client.dispatcher().executed(this);
             // 调用拦截器链
             Response result = getResponseWithInterceptorChain();
@@ -89,6 +97,7 @@ final class RealCall implements Call {
             eventListener.callFailed(this, e);
             throw e;
         } finally {
+            // 任务执行完成，调用清理相关的方法
             client.dispatcher().finished(this);
         }
     }
@@ -211,14 +220,14 @@ final class RealCall implements Call {
     /**
      * 请求的核心流程，执行拦截器链
      *
-     * @return
+     * @return 网络请求结果Response
      * @throws IOException
      */
     Response getResponseWithInterceptorChain() throws IOException {
         // Build a full stack of interceptors.
         List<Interceptor> interceptors = new ArrayList<>();
 
-        // 应用程序拦截器
+        // 应用程序拦截器，用户自定义拦截器
         interceptors.addAll(client.interceptors());
 
         interceptors.add(retryAndFollowUpInterceptor);

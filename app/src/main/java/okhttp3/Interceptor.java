@@ -26,32 +26,34 @@ import java.util.concurrent.TimeUnit;
  * or response.
  */
 public interface Interceptor {
-  Response intercept(Chain chain) throws IOException;
 
-  interface Chain {
-    Request request();
+    Response intercept(Chain chain) throws IOException;
 
-    Response proceed(Request request) throws IOException;
+    interface Chain {
+        Request request();
 
-    /**
-     * Returns the connection the request will be executed on. This is only available in the chains
-     * of network interceptors; for application interceptors this is always null.
-     */
-    @Nullable
-    Connection connection();
+        Response proceed(Request request) throws IOException;
 
-    Call call();
+        /**
+         * Returns the connection the request will be executed on. This is only available in the chains
+         * of network interceptors; for application interceptors this is always null.
+         */
+        @Nullable
+        Connection connection();
 
-    int connectTimeoutMillis();
+        Call call();
 
-    Chain withConnectTimeout(int timeout, TimeUnit unit);
+        int connectTimeoutMillis();
 
-    int readTimeoutMillis();
+        Chain withConnectTimeout(int timeout, TimeUnit unit);
 
-    Chain withReadTimeout(int timeout, TimeUnit unit);
+        int readTimeoutMillis();
 
-    int writeTimeoutMillis();
+        Chain withReadTimeout(int timeout, TimeUnit unit);
 
-    Chain withWriteTimeout(int timeout, TimeUnit unit);
-  }
+        int writeTimeoutMillis();
+
+        Chain withWriteTimeout(int timeout, TimeUnit unit);
+    }
+
 }
