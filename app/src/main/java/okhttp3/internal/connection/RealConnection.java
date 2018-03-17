@@ -262,12 +262,12 @@ public final class RealConnection extends Http2Connection.Listener implements Co
   }
 
   private void establishProtocol(ConnectionSpecSelector connectionSpecSelector,
-      int pingIntervalMillis, Call call, EventListener eventListener) throws IOException {
-    if (route.address().sslSocketFactory() == null) {
-      protocol = Protocol.HTTP_1_1;
-      socket = rawSocket;
-      return;
-    }
+                                     int pingIntervalMillis, Call call, EventListener eventListener) throws IOException {
+        if (route.address().sslSocketFactory() == null) {
+            protocol = Protocol.HTTP_1_1;
+            socket = rawSocket;
+            return;
+        }
 
     eventListener.secureConnectStart(call);
     connectTls(connectionSpecSelector);
