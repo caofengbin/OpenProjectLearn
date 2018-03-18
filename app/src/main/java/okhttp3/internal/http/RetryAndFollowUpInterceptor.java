@@ -123,7 +123,7 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
         int followUpCount = 0;
         Response priorResponse = null;
 
-        // 该拦截器的核心
+        // 该拦截器的核心--关于重试的核心逻辑
         while (true) {
             if (canceled) {
                 streamAllocation.release();
@@ -176,8 +176,9 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
 
             closeQuietly(response.body());
 
-            // 最大重试次数判断
+            // 最大重试次数判断，设置为20次
             if (++followUpCount > MAX_FOLLOW_UPS) {
+                // 重试次数到了20次，不再无限的重试
                 streamAllocation.release();
                 throw new ProtocolException("Too many follow-up requests: " + followUpCount);
             }
@@ -200,6 +201,8 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
             request = followUp;
             priorResponse = response;
         }
+
+
     }
 
     private Address createAddress(HttpUrl url) {
@@ -421,4 +424,5 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
                 && url.port() == followUp.port()
                 && url.scheme().equals(followUp.scheme());
     }
+
 }
