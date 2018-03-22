@@ -177,6 +177,7 @@ public final class Cache implements Closeable, Flushable {
         }
     };
 
+    // OkHttp缓存实现的核心，DiskLruCache
     final DiskLruCache cache;
 
     /* read and write statistics, all guarded by 'this' */
@@ -195,20 +196,27 @@ public final class Cache implements Closeable, Flushable {
     }
 
     /**
-     * 注意这里对url的处理
-     * @param url
-     * @return
+     * 注意这里对url的处理，处理的结果当做key值
+     * 做md5加密处理，拿到16进制的形式
      */
     public static String key(HttpUrl url) {
         return ByteString.encodeUtf8(url.toString()).md5().hex();
     }
 
+    /**
+     * 从缓存中读取response
+     */
     @Nullable
     Response get(Request request) {
+        // 获取key值
         String key = key(request.url());
+
+        // 可认为是一个缓存快照
         DiskLruCache.Snapshot snapshot;
         Entry entry;
+
         try {
+            // 通过key值获取相应的缓存
             snapshot = cache.get(key);
             if (snapshot == null) {
                 return null;
@@ -225,8 +233,10 @@ public final class Cache implements Closeable, Flushable {
             return null;
         }
 
+        // 根据Entry生成相应的Response
         Response response = entry.response(snapshot);
 
+        // 判断响应与请求是否匹配
         if (!entry.matches(request, response)) {
             Util.closeQuietly(response.body());
             return null;
@@ -261,11 +271,12 @@ public final class Cache implements Closeable, Flushable {
             return null;
         }
 
-        // 很重要，疯转需要写入缓存的部分
+        // 很重要，封装需要写入缓存的部分
         Entry entry = new Entry(response);
 
         // 整个OkHttp的缓存是通过DiskLruCache
         DiskLruCache.Editor editor = null;
+
         try {
             // 传入一个key值
             editor = cache.edit(key(response.request().url()));
@@ -273,11 +284,12 @@ public final class Cache implements Closeable, Flushable {
                 return null;
             }
 
-            // 真正开始缓存的部分
+            // 真正开始缓存的部分,调用writeTo方法进行真正的写入
             entry.writeTo(editor);
 
-            // 用户缓存拦截器来使用
+            // 用户缓存拦截器来使用，
             return new CacheRequestImpl(editor);
+
         } catch (IOException e) {
             abortQuietly(editor);
             return null;
@@ -434,6 +446,10 @@ public final class Cache implements Closeable, Flushable {
         return cache.isClosed();
     }
 
+    /**
+     * 更新缓存命中率相关的方法参数
+     * @param cacheStrategy
+     */
     synchronized void trackResponse(CacheStrategy cacheStrategy) {
         requestCount++;
 
@@ -468,6 +484,8 @@ public final class Cache implements Closeable, Flushable {
     private final class CacheRequestImpl implements CacheRequest {
         private final DiskLruCache.Editor editor;
         private Sink cacheOut;
+
+        // body部分即为响应的主体，需要缓存的核心部分
         private Sink body;
         boolean done;
 
@@ -654,6 +672,9 @@ public final class Cache implements Closeable, Flushable {
             this.receivedResponseMillis = response.receivedResponseAtMillis();
         }
 
+        /**
+         * 写入到磁盘上的核心方法
+         */
         public void writeTo(DiskLruCache.Editor editor) throws IOException {
             BufferedSink sink = Okio.buffer(editor.newSink(ENTRY_METADATA));
 
@@ -663,6 +684,8 @@ public final class Cache implements Closeable, Flushable {
                     .writeByte('\n');
             sink.writeDecimalLong(varyHeaders.size())
                     .writeByte('\n');
+
+            // 遍历头部字段信息
             for (int i = 0, size = varyHeaders.size(); i < size; i++) {
                 sink.writeUtf8(varyHeaders.name(i))
                         .writeUtf8(": ")
@@ -670,10 +693,14 @@ public final class Cache implements Closeable, Flushable {
                         .writeByte('\n');
             }
 
+            // 缓存响应行
             sink.writeUtf8(new StatusLine(protocol, code, message).toString())
                     .writeByte('\n');
+            // 缓存响应首部
             sink.writeDecimalLong(responseHeaders.size() + 2)
                     .writeByte('\n');
+
+            // 缓存头部信息
             for (int i = 0, size = responseHeaders.size(); i < size; i++) {
                 sink.writeUtf8(responseHeaders.name(i))
                         .writeUtf8(": ")
@@ -689,6 +716,7 @@ public final class Cache implements Closeable, Flushable {
                     .writeDecimalLong(receivedResponseMillis)
                     .writeByte('\n');
 
+            // 对https相关的请求，还需要特殊的处理
             if (isHttps()) {
                 sink.writeByte('\n');
                 sink.writeUtf8(handshake.cipherSuite().javaName())
@@ -746,6 +774,9 @@ public final class Cache implements Closeable, Flushable {
                     && HttpHeaders.varyMatches(response, varyHeaders, request);
         }
 
+        /**
+         * 生成具体响应Response的方法
+         */
         public Response response(DiskLruCache.Snapshot snapshot) {
             String contentType = responseHeaders.get("Content-Type");
             String contentLength = responseHeaders.get("Content-Length");
@@ -760,6 +791,7 @@ public final class Cache implements Closeable, Flushable {
                     .code(code)
                     .message(message)
                     .headers(responseHeaders)
+                    // 构造响应体
                     .body(new CacheResponseBody(snapshot, contentType, contentLength))
                     .handshake(handshake)
                     .sentRequestAtMillis(sentRequestMillis)

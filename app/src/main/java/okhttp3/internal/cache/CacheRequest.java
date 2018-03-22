@@ -16,10 +16,15 @@
 package okhttp3.internal.cache;
 
 import java.io.IOException;
+
 import okio.Sink;
 
+/**
+ * 暴露给缓存拦截器使用的
+ */
 public interface CacheRequest {
-  Sink body() throws IOException;
 
-  void abort();
+    Sink body() throws IOException;
+
+    void abort();
 }

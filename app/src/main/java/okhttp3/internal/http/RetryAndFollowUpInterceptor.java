@@ -57,15 +57,18 @@ import static okhttp3.internal.http.StatusLine.HTTP_TEMP_REDIRECT;
 
 /**
  * Core拦截器1
- * 重试和重定向拦截器
+ * 失败重试和重定向拦截器
  * 主要负责失败重连
  * This interceptor recovers from failures and follows redirects as necessary. It may throw an
  * {@link IOException} if the call was canceled.
  */
 public final class RetryAndFollowUpInterceptor implements Interceptor {
     /**
-     * How many redirects and auth challenges should we attempt? Chrome follows 21 redirects; Firefox,
-     * curl, and wget follow 20; Safari follows 16; and HTTP/1.0 recommends 5.
+     * How many redirects and auth challenges should we attempt?
+     * Chrome follows 21 redirects;
+     * Firefox,curl, and wget follow 20;
+     * Safari follows 16;
+     * and HTTP/1.0 recommends 5.
      */
     private static final int MAX_FOLLOW_UPS = 20;
 
@@ -133,24 +136,32 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
             Response response;
             boolean releaseConnection = true;
             try {
+                // 执行真正的网络请求的地方
                 response = realChain.proceed(request, streamAllocation, null, null);
                 releaseConnection = false;
             } catch (RouteException e) {
                 // The attempt to connect via a route failed. The request will not have been sent.
+                // 检测路由异常是否能重新连接
                 if (!recover(e.getLastConnectException(), streamAllocation, false, request)) {
                     throw e.getLastConnectException();
                 }
                 releaseConnection = false;
+                // 重新进行while循环，进行网络请求
                 continue;
             } catch (IOException e) {
                 // An attempt to communicate with a server failed. The request may have been sent.
+                // 检测该IO异常是否能重新连接
                 boolean requestSendStarted = !(e instanceof ConnectionShutdownException);
-                if (!recover(e, streamAllocation, requestSendStarted, request)) throw e;
+                if (!recover(e, streamAllocation, requestSendStarted, request)) {
+                    throw e;
+                }
                 releaseConnection = false;
+                // 重新进行while循环，进行网络请求
                 continue;
             } finally {
                 // We're throwing an unchecked exception. Release any resources.
                 if (releaseConnection) {
+                    // 当 releaseConnection 为 true 时表示需要释放连接了,不需要进行重连的操作了
                     streamAllocation.streamFailed(null);
                     streamAllocation.release();
                 }
@@ -225,6 +236,7 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
      * {@code e} is recoverable, or false if the failure is permanent. Requests with a body can only
      * be recovered if the body is buffered or if the failure occurred before the request has been
      * sent.
+     * 通过该recover方法检测该RouteException 是否能重新连接
      */
     private boolean recover(IOException e, StreamAllocation streamAllocation,
                             boolean requestSendStarted, Request userRequest) {
