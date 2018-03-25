@@ -74,7 +74,10 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
 
     private final OkHttpClient client;
     private final boolean forWebSocket;
+
+    // 建立HTTP请求的核心，用于服务端的输入输出流的数据传输
     private volatile StreamAllocation streamAllocation;
+
     private Object callStackTrace;
     private volatile boolean canceled;
 
@@ -115,6 +118,7 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
         Request request = chain.request();
         RealInterceptorChain realChain = (RealInterceptorChain) chain;
         Call call = realChain.call();
+
         EventListener eventListener = realChain.eventListener();
 
         // 分配Stream，用来建立执行HTTP请求所需要的组件的，实际在这个拦截器中并没有被使用到
@@ -138,6 +142,7 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
             try {
                 // 执行真正的网络请求的地方
                 response = realChain.proceed(request, streamAllocation, null, null);
+                // 表示是否要释放连接，在 finally 中会使用到。
                 releaseConnection = false;
             } catch (RouteException e) {
                 // The attempt to connect via a route failed. The request will not have been sent.
@@ -145,6 +150,7 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
                 if (!recover(e.getLastConnectException(), streamAllocation, false, request)) {
                     throw e.getLastConnectException();
                 }
+                // 可以重新连接，那么就不要释放连接
                 releaseConnection = false;
                 // 重新进行while循环，进行网络请求
                 continue;
@@ -155,11 +161,13 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
                 if (!recover(e, streamAllocation, requestSendStarted, request)) {
                     throw e;
                 }
+                // 可以重新连接，那么就不要释放连接
                 releaseConnection = false;
                 // 重新进行while循环，进行网络请求
                 continue;
             } finally {
                 // We're throwing an unchecked exception. Release any resources.
+                // 当 releaseConnection 为true时表示需要释放连接了。
                 if (releaseConnection) {
                     // 当 releaseConnection 为 true 时表示需要释放连接了,不需要进行重连的操作了
                     streamAllocation.streamFailed(null);
@@ -176,6 +184,7 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
                         .build();
             }
 
+            // 当代码可以执行到 followUpRequest 方法就表示这个请求是成功的，但是服务器返回的状态码可能不是200
             Request followUp = followUpRequest(response, streamAllocation.route());
 
             if (followUp == null) {
@@ -189,7 +198,7 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
 
             // 最大重试次数判断，设置为20次
             if (++followUpCount > MAX_FOLLOW_UPS) {
-                // 重试次数到了20次，不再无限的重试
+                // 重试次数到了20次，不再无限的重试，需要跳出while循环
                 streamAllocation.release();
                 throw new ProtocolException("Too many follow-up requests: " + followUpCount);
             }
@@ -236,29 +245,45 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
      * {@code e} is recoverable, or false if the failure is permanent. Requests with a body can only
      * be recovered if the body is buffered or if the failure occurred before the request has been
      * sent.
-     * 通过该recover方法检测该RouteException 是否能重新连接
+     * 通过该recover方法检测
+     * RouteException 以及 IOException
+     * 是否能重新连接
      */
     private boolean recover(IOException e, StreamAllocation streamAllocation,
                             boolean requestSendStarted, Request userRequest) {
         streamAllocation.streamFailed(e);
 
         // The application layer has forbidden retries.
-        if (!client.retryOnConnectionFailure()) return false;
+        // 1.判断 OkHttpClient 是否支持失败重连的机制
+        if (!client.retryOnConnectionFailure()) {
+            return false;
+        }
 
         // We can't send the request body again.
         if (requestSendStarted && userRequest.body() instanceof UnrepeatableRequestBody)
             return false;
 
         // This exception is fatal.
-        if (!isRecoverable(e, requestSendStarted)) return false;
+        // 2.检测该异常是否是致命的。
+        if (!isRecoverable(e, requestSendStarted)) {
+            return false;
+        }
 
         // No more routes to attempt.
-        if (!streamAllocation.hasMoreRoutes()) return false;
+        // 3.是否有更多的路线
+        if (!streamAllocation.hasMoreRoutes()) {
+            return false;
+        }
 
         // For failure recovery, use the same route selector with a new connection.
         return true;
     }
 
+
+    /**
+     * 检测异常是否是不是可恢复的
+     * 返回false的都是不可恢复的严重异常
+     */
     private boolean isRecoverable(IOException e, boolean requestSendStarted) {
         // If there was a protocol problem, don't recover.
         if (e instanceof ProtocolException) {
@@ -267,6 +292,7 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
 
         // If there was an interruption don't recover, but if there was a timeout connecting to a route
         // we should try the next route (if there is one).
+        // 表示连接超时异常，这个异常还是可以进行重连的
         if (e instanceof InterruptedIOException) {
             return e instanceof SocketTimeoutException && !requestSendStarted;
         }
@@ -301,6 +327,8 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
         int responseCode = userResponse.code();
 
         final String method = userResponse.request().method();
+
+        // 根据响应码进行判断
         switch (responseCode) {
             case HTTP_PROXY_AUTH:
                 Proxy selectedProxy = route != null
@@ -327,14 +355,22 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
             case HTTP_MOVED_TEMP:
             case HTTP_SEE_OTHER:
                 // Does the client allow redirects?
-                if (!client.followRedirects()) return null;
+                // 300,301,302,303几个重定向相关的状态码
+                if (!client.followRedirects()) {
+                    return null;
+                }
 
                 String location = userResponse.header("Location");
-                if (location == null) return null;
+                if (location == null) {
+                    return null;
+                }
+
                 HttpUrl url = userResponse.request().url().resolve(location);
 
                 // Don't follow redirects to unsupported protocols.
                 if (url == null) return null;
+
+                // 获取响应头 Location 值，这就是要重定向的地址；
 
                 // If configured, don't follow redirects between SSL and non-SSL.
                 boolean sameScheme = url.scheme().equals(userResponse.request().url().scheme());
