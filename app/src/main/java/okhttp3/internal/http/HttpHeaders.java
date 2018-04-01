@@ -198,11 +198,18 @@ public final class HttpHeaders {
         return challenges;
     }
 
+    /**
+     * 获取服务器返回的Cookie
+     */
     public static void receiveHeaders(CookieJar cookieJar, HttpUrl url, Headers headers) {
-        if (cookieJar == CookieJar.NO_COOKIES) return;
+        if (cookieJar == CookieJar.NO_COOKIES) {
+            return;
+        }
 
         List<Cookie> cookies = Cookie.parseAll(url, headers);
-        if (cookies.isEmpty()) return;
+        if (cookies.isEmpty()) {
+            return;
+        }
 
         cookieJar.saveFromResponse(url, cookies);
     }

@@ -20,11 +20,11 @@ import java.util.List;
 
 /**
  * Provides <strong>policy</strong> and <strong>persistence</strong> for HTTP cookies.
- *
+ * <p>
  * <p>As policy, implementations of this interface are responsible for selecting which cookies to
  * accept and which to reject. A reasonable policy is to reject all cookies, though that may
  * interfere with session-based authentication schemes that require cookies.
- *
+ * <p>
  * <p>As persistence, implementations of this interface must also provide storage of cookies. Simple
  * implementations may store cookies in memory; sophisticated ones may use the file system or
  * database to hold accepted cookies. The <a
@@ -32,31 +32,38 @@ import java.util.List;
  * policies for updating and expiring cookies.
  */
 public interface CookieJar {
-  /** A cookie jar that never accepts any cookies. */
-  CookieJar NO_COOKIES = new CookieJar() {
-    @Override public void saveFromResponse(HttpUrl url, List<Cookie> cookies) {
-    }
+    /**
+     * A cookie jar that never accepts any cookies.
+     */
+    CookieJar NO_COOKIES = new CookieJar() {
+        @Override
+        public void saveFromResponse(HttpUrl url, List<Cookie> cookies) {
+        }
 
-    @Override public List<Cookie> loadForRequest(HttpUrl url) {
-      return Collections.emptyList();
-    }
-  };
+        @Override
+        public List<Cookie> loadForRequest(HttpUrl url) {
+            return Collections.emptyList();
+        }
+    };
 
-  /**
-   * Saves {@code cookies} from an HTTP response to this store according to this jar's policy.
-   *
-   * <p>Note that this method may be called a second time for a single HTTP response if the response
-   * includes a trailer. For this obscure HTTP feature, {@code cookies} contains only the trailer's
-   * cookies.
-   */
-  void saveFromResponse(HttpUrl url, List<Cookie> cookies);
+    /**
+     * Saves {@code cookies} from an HTTP response to this store according to this jar's policy.
+     * <p>
+     * <p>Note that this method may be called a second time for a single HTTP response if the response
+     * includes a trailer. For this obscure HTTP feature, {@code cookies} contains only the trailer's
+     * cookies.
+     * Cookie核心操作1：保存Cookie的方法
+     */
+    void saveFromResponse(HttpUrl url, List<Cookie> cookies);
 
-  /**
-   * Load cookies from the jar for an HTTP request to {@code url}. This method returns a possibly
-   * empty list of cookies for the network request.
-   *
-   * <p>Simple implementations will return the accepted cookies that have not yet expired and that
-   * {@linkplain Cookie#matches match} {@code url}.
-   */
-  List<Cookie> loadForRequest(HttpUrl url);
+    /**
+     * Load cookies from the jar for an HTTP request to {@code url}. This method returns a possibly
+     * empty list of cookies for the network request.
+     * <p>
+     * <p>Simple implementations will return the accepted cookies that have not yet expired and that
+     * {@linkplain Cookie#matches match} {@code url}.
+     * Cookie核心操作2：获取Cookie的方法
+     */
+    List<Cookie> loadForRequest(HttpUrl url);
+
 }

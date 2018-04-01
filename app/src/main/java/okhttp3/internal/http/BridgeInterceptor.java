@@ -34,13 +34,18 @@ import okio.Okio;
 import static okhttp3.internal.Util.hostHeader;
 
 /**
- * Bridges from application code to network code. First it builds a network request from a user
- * request. Then it proceeds to call the network. Finally it builds a user response from the network
- * response.
+ * Bridges from application code to network code.
+ * First it builds a network request from a user request.
+ * Then it proceeds to call the network.
+ * Finally it builds a user response from the network response.
+ *
+ * Core拦截器2：
+ * 桥接拦截器
  * 设置内容长度，以及编码方式，设置压缩等
- * 主要是添加头部
+ * 主要是添加头部，以及处理网络请求的响应。
  */
 public final class BridgeInterceptor implements Interceptor {
+
     private final CookieJar cookieJar;
 
     public BridgeInterceptor(CookieJar cookieJar) {
@@ -52,7 +57,7 @@ public final class BridgeInterceptor implements Interceptor {
         Request userRequest = chain.request();
         Request.Builder requestBuilder = userRequest.newBuilder();
 
-        // 添加一个系列的请求头
+        // 1.添加一个系列的请求头
         RequestBody body = userRequest.body();
         if (body != null) {
             MediaType contentType = body.contentType();
@@ -96,10 +101,10 @@ public final class BridgeInterceptor implements Interceptor {
             requestBuilder.header("User-Agent", Version.userAgent());
         }
 
-        // 调用拦截器链的proceed方法，实际发起网络请求的地方。
+        // 2.调用拦截器链的proceed方法，实际发起网络请求的地方。
         Response networkResponse = chain.proceed(requestBuilder.build());
 
-        // 转化HTTP首部
+        // 3.处理响应，将response转化为用户可以使用的response，转化HTTP首部
         HttpHeaders.receiveHeaders(cookieJar, userRequest.url(), networkResponse.headers());
 
         Response.Builder responseBuilder = networkResponse.newBuilder()
