@@ -24,11 +24,11 @@ import java.io.IOException;
  * Implementations may either attempt to satisfy the challenge by returning a request that includes
  * an authorization header, or they may refuse the challenge by returning null. In this case the
  * unauthenticated response will be returned to the caller that triggered it.
- *
+ * <p>
  * <p>Implementations should check if the initial request already included an attempt to
  * authenticate. If so it is likely that further attempts will not be useful and the authenticator
  * should give up.
- *
+ * <p>
  * <p>When authentication is requested by an origin server, the response code is 401 and the
  * implementation should respond with a new request that sets the "Authorization" header.
  * <pre>   {@code
@@ -42,7 +42,7 @@ import java.io.IOException;
  *        .header("Authorization", credential)
  *        .build();
  * }</pre>
- *
+ * <p>
  * <p>When authentication is requested by a proxy server, the response code is 407 and the
  * implementation should respond with a new request that sets the "Proxy-Authorization" header.
  * <pre>   {@code
@@ -56,22 +56,25 @@ import java.io.IOException;
  *        .header("Proxy-Authorization", credential)
  *        .build();
  * }</pre>
- *
+ * <p>
  * <p>Applications may configure OkHttp with an authenticator for origin servers, or proxy servers,
  * or both.
  */
 public interface Authenticator {
-  /** An authenticator that knows no credentials and makes no attempt to authenticate. */
-  Authenticator NONE = new Authenticator() {
-    @Override public Request authenticate(Route route, Response response) {
-      return null;
-    }
-  };
+    /**
+     * An authenticator that knows no credentials and makes no attempt to authenticate.
+     */
+    Authenticator NONE = new Authenticator() {
+        @Override
+        public Request authenticate(Route route, Response response) {
+            return null;
+        }
+    };
 
-  /**
-   * Returns a request that includes a credential to satisfy an authentication challenge in {@code
-   * response}. Returns null if the challenge cannot be satisfied.
-   */
-  @Nullable
-  Request authenticate(Route route, Response response) throws IOException;
+    /**
+     * Returns a request that includes a credential to satisfy an authentication challenge in {@code
+     * response}. Returns null if the challenge cannot be satisfied.
+     */
+    @Nullable
+    Request authenticate(Route route, Response response) throws IOException;
 }

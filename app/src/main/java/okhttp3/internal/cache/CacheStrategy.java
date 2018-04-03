@@ -48,6 +48,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  * <p>Selecting a cache strategy may add conditions to the request (like the "If-Modified-Since"
  * header for conditional GETs) or warnings to the cached response (if the cached data is
  * potentially stale).
+ *
  */
 public final class CacheStrategy {
     /**
