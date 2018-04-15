@@ -37,7 +37,9 @@ public final class CallServerInterceptor implements Interceptor {
     this.forWebSocket = forWebSocket;
   }
 
-  @Override public Response intercept(Chain chain) throws IOException {
+  @Override
+  public Response intercept(Chain chain) throws IOException {
+    // 5个非常重要的变量
     RealInterceptorChain realChain = (RealInterceptorChain) chain;
     HttpCodec httpCodec = realChain.httpStream();
     StreamAllocation streamAllocation = realChain.streamAllocation();
@@ -47,6 +49,7 @@ public final class CallServerInterceptor implements Interceptor {
     long sentRequestMillis = System.currentTimeMillis();
 
     realChain.eventListener().requestHeadersStart(realChain.call());
+    // 比较重要的方法，向Socket当中写入头部信息
     httpCodec.writeRequestHeaders(request);
     realChain.eventListener().requestHeadersEnd(realChain.call(), request);
 
@@ -55,6 +58,7 @@ public final class CallServerInterceptor implements Interceptor {
       // If there's a "Expect: 100-continue" header on the request, wait for a "HTTP/1.1 100
       // Continue" response before transmitting the request body. If we don't get that, return
       // what we did get (such as a 4xx response) without ever transmitting the request body.
+      // 特殊处理流程
       if ("100-continue".equalsIgnoreCase(request.header("Expect"))) {
         httpCodec.flushRequest();
         realChain.eventListener().responseHeadersStart(realChain.call());
@@ -69,6 +73,7 @@ public final class CallServerInterceptor implements Interceptor {
             new CountingSink(httpCodec.createRequestBody(request, contentLength));
         BufferedSink bufferedRequestBody = Okio.buffer(requestBodyOut);
 
+        // 向Socket中写入body信息
         request.body().writeTo(bufferedRequestBody);
         bufferedRequestBody.close();
         realChain.eventListener()
@@ -81,6 +86,7 @@ public final class CallServerInterceptor implements Interceptor {
       }
     }
 
+    // 表明完成了整个HTTP的写入工作
     httpCodec.finishRequest();
 
     if (responseBuilder == null) {
@@ -88,6 +94,7 @@ public final class CallServerInterceptor implements Interceptor {
       responseBuilder = httpCodec.readResponseHeaders(false);
     }
 
+    // 下面是读取响应的部分
     Response response = responseBuilder
         .request(request)
         .handshake(streamAllocation.connection().handshake())
@@ -120,6 +127,7 @@ public final class CallServerInterceptor implements Interceptor {
           .body(Util.EMPTY_RESPONSE)
           .build();
     } else {
+      // 读取网络响应的body信息
       response = response.newBuilder()
           .body(httpCodec.openResponseBody(response))
           .build();
@@ -127,6 +135,7 @@ public final class CallServerInterceptor implements Interceptor {
 
     if ("close".equalsIgnoreCase(response.request().header("Connection"))
         || "close".equalsIgnoreCase(response.header("Connection"))) {
+      // 关闭流的操作
       streamAllocation.noNewStreams();
     }
 
