@@ -17,6 +17,7 @@ package okhttp3.internal.connection;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
+
 import okhttp3.Route;
 
 /**
@@ -24,22 +25,29 @@ import okhttp3.Route;
  * used so that OkHttp can learn from its mistakes: if there was a failure attempting to connect to
  * a specific IP address or proxy server, that failure is remembered and alternate routes are
  * preferred.
+ * 维护近期访问失败的路由信息
  */
 public final class RouteDatabase {
-  private final Set<Route> failedRoutes = new LinkedHashSet<>();
+    private final Set<Route> failedRoutes = new LinkedHashSet<>();
 
-  /** Records a failure connecting to {@code failedRoute}. */
-  public synchronized void failed(Route failedRoute) {
-    failedRoutes.add(failedRoute);
-  }
+    /**
+     * Records a failure connecting to {@code failedRoute}.
+     */
+    public synchronized void failed(Route failedRoute) {
+        failedRoutes.add(failedRoute);
+    }
 
-  /** Records success connecting to {@code route}. */
-  public synchronized void connected(Route route) {
-    failedRoutes.remove(route);
-  }
+    /**
+     * Records success connecting to {@code route}.
+     */
+    public synchronized void connected(Route route) {
+        failedRoutes.remove(route);
+    }
 
-  /** Returns true if {@code route} has failed recently and should be avoided. */
-  public synchronized boolean shouldPostpone(Route route) {
-    return failedRoutes.contains(route);
-  }
+    /**
+     * Returns true if {@code route} has failed recently and should be avoided.
+     */
+    public synchronized boolean shouldPostpone(Route route) {
+        return failedRoutes.contains(route);
+    }
 }

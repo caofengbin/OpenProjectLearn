@@ -103,8 +103,17 @@ public final class StreamAllocation {
         this.callStackTrace = callStackTrace;
     }
 
+    /**
+     * 非常重要的一个方法
+     *
+     * @param client
+     * @param chain                   RealInterceptorChain
+     * @param doExtensiveHealthChecks 值为 !request.method().equals("GET")
+     * @return
+     */
     public HttpCodec newStream(
             OkHttpClient client, Interceptor.Chain chain, boolean doExtensiveHealthChecks) {
+
         int connectTimeout = chain.connectTimeoutMillis();
         int readTimeout = chain.readTimeoutMillis();
         int writeTimeout = chain.writeTimeoutMillis();
@@ -130,6 +139,8 @@ public final class StreamAllocation {
     /**
      * Finds a connection and returns it if it is healthy. If it is unhealthy the process is repeated
      * until a healthy connection is found.
+     * <p>
+     * 获取一个健康的连接 RealConnection，并将它返回
      */
     private RealConnection findHealthyConnection(int connectTimeout, int readTimeout,
                                                  int writeTimeout, int pingIntervalMillis, boolean connectionRetryEnabled,
@@ -141,7 +152,7 @@ public final class StreamAllocation {
             // If this is a brand new connection, we can skip the extensive health checks.
             synchronized (connectionPool) {
                 if (candidate.successCount == 0) {
-                    // 为0，直接返回
+                    // successCount每使用一次，该值就自增一次，如果是全新的值为0，则可以直接返回，不需要后面的是否为健康连接的检查
                     return candidate;
                 }
             }
@@ -149,7 +160,7 @@ public final class StreamAllocation {
             // Do a (potentially slow) check to confirm that the pooled connection is still good. If it
             // isn't, take it out of the pool and start again.
             if (!candidate.isHealthy(doExtensiveHealthChecks)) {
-                // 不健康的连接，直接关闭
+                // 不健康的连接，进行一系列的销毁操作
                 noNewStreams();
                 continue;
             }
@@ -181,6 +192,7 @@ public final class StreamAllocation {
             toClose = releaseIfNoNewStreams();
             if (this.connection != null) {
                 // We had an already-allocated connection and it's good.
+                // 判断可复用连接是否为空
                 result = this.connection;
                 releasedConnection = null;
             }
@@ -213,6 +225,7 @@ public final class StreamAllocation {
         }
         if (result != null) {
             // If we found an already-allocated or pooled connection, we're done.
+            // 找到了一个从连接池中复用的连接了，直接返回，不需要重新打开连接
             return result;
         }
 
@@ -242,6 +255,7 @@ public final class StreamAllocation {
                 }
             }
 
+            // 依然找不到可复用的连接，则新创建一个RealConnection
             if (!foundPooledConnection) {
                 if (selectedRoute == null) {
                     selectedRoute = routeSelection.next();
@@ -266,6 +280,7 @@ public final class StreamAllocation {
         // 调用connect进行实际的网络连接
         result.connect(connectTimeout, readTimeout, writeTimeout, pingIntervalMillis,
                 connectionRetryEnabled, call, eventListener);
+        // 更新路由表
         routeDatabase().connected(result.route());
 
         Socket socket = null;
@@ -476,13 +491,16 @@ public final class StreamAllocation {
     /**
      * Use this allocation to hold {@code connection}. Each call to this must be paired with a call to
      * {@link #release} on the same connection.
+     * 获取连接池中可用的连接
      */
     public void acquire(RealConnection connection, boolean reportedAcquired) {
         assert (Thread.holdsLock(connectionPool));
         if (this.connection != null) throw new IllegalStateException();
 
+        // 赋值操作
         this.connection = connection;
         this.reportedAcquired = reportedAcquired;
+        // 非常重要的一个操作
         connection.allocations.add(new StreamAllocationReference(this, callStackTrace));
     }
 

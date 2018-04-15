@@ -149,7 +149,9 @@ public final class RealConnection extends Http2Connection.Listener implements Co
         }
 
         RouteException routeException = null;
+        // ConnectionSpec指定了Socket连接的配置
         List<ConnectionSpec> connectionSpecs = route.address().connectionSpecs();
+        // 用于选择连接
         ConnectionSpecSelector connectionSpecSelector = new ConnectionSpecSelector(connectionSpecs);
 
         if (route.address().sslSocketFactory() == null) {
@@ -538,6 +540,7 @@ public final class RealConnection extends Http2Connection.Listener implements Co
 
     /**
      * Returns true if this connection is ready to host new streams.
+     * 判断连接是否健康
      */
     public boolean isHealthy(boolean doExtensiveChecks) {
         if (socket.isClosed() || socket.isInputShutdown() || socket.isOutputShutdown()) {

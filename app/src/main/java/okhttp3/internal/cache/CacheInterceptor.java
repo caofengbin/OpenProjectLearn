@@ -57,23 +57,31 @@ public final class CacheInterceptor implements Interceptor {
 
     @Override
     public Response intercept(Chain chain) throws IOException {
-        // 尝试获取缓存
+        // 获取本地缓存cacheCandidate，得到候选缓存，或者得到的为空
         Response cacheCandidate = cache != null
                 ? cache.get(chain.request())
                 : null;
 
         long now = System.currentTimeMillis();
 
+        // 通过时间，原始Request，以及cacheCandidate构造CacheStrategy
         CacheStrategy strategy = new CacheStrategy.Factory(now, chain.request(), cacheCandidate).get();
+
+        // networkRequest为null就不走网络取数据
         Request networkRequest = strategy.networkRequest;
+
+        // cacheResponse为null则不用缓存
         Response cacheResponse = strategy.cacheResponse;
 
         if (cache != null) {
+            // 更新缓存命中率相关的方法参数,在Cache中实现
             cache.trackResponse(strategy);
         }
 
         if (cacheCandidate != null && cacheResponse == null) {
-            closeQuietly(cacheCandidate.body()); // The cache candidate wasn't applicable. Close it.
+            // The cache candidate wasn't applicable. Close it.
+            // 存在缓存但是缓存不可用
+            closeQuietly(cacheCandidate.body());
         }
 
         // If we're forbidden from using the network and the cache is insufficient, fail.
@@ -100,6 +108,7 @@ public final class CacheInterceptor implements Interceptor {
 
         Response networkResponse = null;
         try {
+            // 发起网络请求获取response
             networkResponse = chain.proceed(networkRequest);
         } finally {
             // If we're crashing on I/O or otherwise, don't leak the cache body.
@@ -111,6 +120,7 @@ public final class CacheInterceptor implements Interceptor {
         // If we have a cache response too, then we're doing a conditional get.
         if (cacheResponse != null) {
             if (networkResponse.code() == HTTP_NOT_MODIFIED) {
+                // 304 Not Modified 响应
                 Response response = cacheResponse.newBuilder()
                         .headers(combine(cacheResponse.headers(), networkResponse.headers()))
                         .sentRequestAtMillis(networkResponse.sentRequestAtMillis())
@@ -135,11 +145,13 @@ public final class CacheInterceptor implements Interceptor {
                 .networkResponse(stripBody(networkResponse))
                 .build();
 
+
         if (cache != null) {
-            // 判断是否需要进行缓存
+            // 判断是否需要进行缓存，同时满足这两个条件
             if (HttpHeaders.hasBody(response) && CacheStrategy.isCacheable(response, networkRequest)) {
                 // Offer this request to the cache.
                 CacheRequest cacheRequest = cache.put(response);
+                // 进行写入缓存的操作
                 return cacheWritingResponse(cacheRequest, response);
             }
 

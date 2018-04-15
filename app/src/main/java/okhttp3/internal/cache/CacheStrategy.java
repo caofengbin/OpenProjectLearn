@@ -48,11 +48,12 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  * <p>Selecting a cache strategy may add conditions to the request (like the "If-Modified-Since"
  * header for conditional GETs) or warnings to the cached response (if the cached data is
  * potentially stale).
- *
+ * CacheInterceptor緩存拦截器中的一个核心关键类
  */
 public final class CacheStrategy {
     /**
      * The request to send on the network, or null if this call doesn't use the network.
+     * networkRequest为null,不走网络取数据
      */
     public final
     @Nullable
@@ -60,6 +61,7 @@ public final class CacheStrategy {
 
     /**
      * The cached response to return or validate; or null if this call doesn't use a cache.
+     * cacheResponse为null，不使用缓存数据
      */
     public final
     @Nullable
@@ -72,6 +74,7 @@ public final class CacheStrategy {
 
     /**
      * Returns true if {@code response} can be stored to later serve another request.
+     * 跟进缓存Response的code，response和request的cache-control的noStore字段判断是否需要缓存
      */
     public static boolean isCacheable(Response response, Request request) {
         // Always go to network for uncacheable response codes (RFC 7231 section 6.1),
@@ -213,6 +216,7 @@ public final class CacheStrategy {
             }
 
             // Drop the cached response if it's missing a required handshake.
+            // 请求为https且缓存没有TLS握手
             if (request.isHttps() && cacheResponse.handshake() == null) {
                 return new CacheStrategy(request, null);
             }
@@ -227,17 +231,24 @@ public final class CacheStrategy {
 
             CacheControl requestCaching = request.cacheControl();
 
-            // 指定了不适用缓存
+            // 指定了不使用缓存
+            /**
+             * 缓存策略指定了不使用缓存，
+             * 以及请求头部带有条件缓存的相关首部字段
+             */
             if (requestCaching.noCache() || hasConditions(request)) {
                 return new CacheStrategy(request, null);
             }
 
+            // 使用缓存
             CacheControl responseCaching = cacheResponse.cacheControl();
             if (responseCaching.immutable()) {
                 return new CacheStrategy(null, cacheResponse);
             }
 
+            // Returns the current age of the response
             long ageMillis = cacheResponseAge();
+            // returns the number of milliseconds that the response was fresh for
             long freshMillis = computeFreshnessLifetime();
 
             if (requestCaching.maxAgeSeconds() != -1) {
@@ -263,6 +274,7 @@ public final class CacheStrategy {
                 if (ageMillis > oneDayMillis && isFreshnessLifetimeHeuristic()) {
                     builder.addHeader("Warning", "113 HttpURLConnection \"Heuristic expiration\"");
                 }
+                // 唯一使用缓存的response的地方
                 return new CacheStrategy(null, builder.build());
             }
 
@@ -280,12 +292,15 @@ public final class CacheStrategy {
                 conditionName = "If-Modified-Since";
                 conditionValue = servedDateString;
             } else {
-                return new CacheStrategy(request, null); // No condition! Make a regular request.
+                // No condition! Make a regular request.
+                // 没有条件缓存相关首部
+                return new CacheStrategy(request, null);
             }
 
             Headers.Builder conditionalRequestHeaders = request.headers().newBuilder();
             Internal.instance.addLenient(conditionalRequestHeaders, conditionName, conditionValue);
 
+            // 生成条件请求
             Request conditionalRequest = request.newBuilder()
                     .headers(conditionalRequestHeaders.build())
                     .build();

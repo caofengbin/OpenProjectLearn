@@ -11,14 +11,14 @@ import okhttp3.internal.http.HttpHeaders;
  * on what responses can be stored, and which requests can be satisfied by those stored responses.
  * <p>
  * <p>See <a href="https://tools.ietf.org/html/rfc7234#section-5.2">RFC 7234, 5.2</a>.
- *
- * 缓存策略的控制类
+ * <p>
+ * 控制使用缓存的方式，非常重要的一个类
  */
 public final class CacheControl {
     /**
      * Cache control request directives that require network validation of responses. Note that such
      * requests may be assisted by the cache via conditional GET requests.
-     *
+     * <p>
      * 强制使用网络请求
      */
     public static final CacheControl FORCE_NETWORK = new Builder().noCache().build();
@@ -27,7 +27,7 @@ public final class CacheControl {
      * Cache control request directives that uses the cache only, even if the cached response is
      * stale. If the response isn't available in the cache or requires server validation, the call
      * will fail with a {@code 504 Unsatisfiable Request}.
-     *
+     * <p>
      * 只取本地的缓存
      */
     public static final CacheControl FORCE_CACHE = new Builder()
@@ -301,6 +301,7 @@ public final class CacheControl {
 
         /**
          * Don't accept an unvalidated cached response.
+         * 不使用缓存，用网络请求
          */
         public Builder noCache() {
             this.noCache = true;
@@ -309,6 +310,7 @@ public final class CacheControl {
 
         /**
          * Don't store the server's response in any cache.
+         * 不使用缓存，也不存储缓存
          */
         public Builder noStore() {
             this.noStore = true;
@@ -318,6 +320,7 @@ public final class CacheControl {
         /**
          * Sets the maximum age of a cached response. If the cache response's age exceeds {@code
          * maxAge}, it will not be used and a network request will be made.
+         * 设置超时时间
          *
          * @param maxAge a non-negative integer. This is stored and transmitted with {@link
          *               TimeUnit#SECONDS} precision; finer precision will be lost.
@@ -334,6 +337,7 @@ public final class CacheControl {
         /**
          * Accept cached responses that have exceeded their freshness lifetime by up to {@code
          * maxStale}. If unspecified, stale cache responses will not be used.
+         * 超时之外的超时时间
          *
          * @param maxStale a non-negative integer. This is stored and transmitted with {@link
          *                 TimeUnit#SECONDS} precision; finer precision will be lost.
@@ -367,6 +371,7 @@ public final class CacheControl {
         /**
          * Only accept the response if it is in the cache. If the response isn't cached, a {@code 504
          * Unsatisfiable Request} response will be returned.
+         * 只使用缓存
          */
         public Builder onlyIfCached() {
             this.onlyIfCached = true;
@@ -375,6 +380,7 @@ public final class CacheControl {
 
         /**
          * Don't accept a transformed response.
+         * 禁止转码
          */
         public Builder noTransform() {
             this.noTransform = true;

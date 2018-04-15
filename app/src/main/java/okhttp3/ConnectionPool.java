@@ -70,6 +70,7 @@ public final class ConnectionPool {
         @Override
         public void run() {
             while (true) {
+                // waitNanos是下一次需要清理的间隔时间
                 long waitNanos = cleanup(System.nanoTime());
                 if (waitNanos == -1) return;
                 if (waitNanos > 0) {
@@ -77,6 +78,7 @@ public final class ConnectionPool {
                     waitNanos -= (waitMillis * 1000000L);
                     synchronized (ConnectionPool.this) {
                         try {
+                            // 等待时间到了之后，继续执行该清理的线程任务
                             ConnectionPool.this.wait(waitMillis, (int) waitNanos);
                         } catch (InterruptedException ignored) {
                         }
@@ -133,12 +135,13 @@ public final class ConnectionPool {
     /**
      * Returns a recycled connection to {@code address}, or null if no such connection exists. The
      * route is null if the address has not yet been routed.
+     * get方法，获取一个可用的连接
      */
     @Nullable
     RealConnection get(Address address, StreamAllocation streamAllocation, Route route) {
         assert (Thread.holdsLock(this));
         for (RealConnection connection : connections) {
-            // 判断连接是否可用
+            // 判断连接是否可以复用
             if (connection.isEligible(address, route)) {
                 streamAllocation.acquire(connection, true);
                 return connection;
@@ -164,6 +167,11 @@ public final class ConnectionPool {
         return null;
     }
 
+    /**
+     * put方法
+     *
+     * @param connection
+     */
     void put(RealConnection connection) {
         assert (Thread.holdsLock(this));
         if (!cleanupRunning) {
@@ -217,28 +225,34 @@ public final class ConnectionPool {
      * <p>
      * <p>Returns the duration in nanos to sleep until the next scheduled call to this method. Returns
      * -1 if no further cleanups are required.
-     * 具体的GC回收算法，一个标记清除算法
+     * 具体的GC回收算法，一个
+     * "标记清除算法"
      */
     long cleanup(long now) {
-        int inUseConnectionCount = 0;
-        int idleConnectionCount = 0;
+        int inUseConnectionCount = 0;               // 正在使用的连接数量
+        int idleConnectionCount = 0;                // 空闲连接的数量
+
         RealConnection longestIdleConnection = null;
         long longestIdleDurationNs = Long.MIN_VALUE;
 
         // Find either a connection to evict, or the time that the next eviction is due.
+        // 遍历队列中的所有RealConnection，标记泄漏的连接
         synchronized (this) {
             for (Iterator<RealConnection> i = connections.iterator(); i.hasNext(); ) {
                 RealConnection connection = i.next();
 
                 // If the connection is in use, keep searching.
+                //  查询此连接内部 StreamAllocation 的引用数量
                 if (pruneAndGetAllocationCount(connection, now) > 0) {
                     inUseConnectionCount++;
                     continue;
                 }
 
+                // 引用计数为0
                 idleConnectionCount++;
 
                 // If the connection is ready to be evicted, we're done.
+                // 选择排序法，标记出空闲连接
                 long idleDurationNs = now - connection.idleAtNanos;
                 if (idleDurationNs > longestIdleDurationNs) {
                     longestIdleDurationNs = idleDurationNs;
@@ -246,19 +260,25 @@ public final class ConnectionPool {
                 }
             }
 
+            // 第一个判断
             if (longestIdleDurationNs >= this.keepAliveDurationNs
                     || idleConnectionCount > this.maxIdleConnections) {
                 // We've found a connection to evict. Remove it from the list, then close it below (outside
                 // of the synchronized block).
+                // 如果空闲socket连接超过5个
+                // 或keepalive时间大于5分钟
+                // 就将此泄漏连接从Deque中移除
                 connections.remove(longestIdleConnection);
             } else if (idleConnectionCount > 0) {
                 // A connection will be ready to evict soon.
                 return keepAliveDurationNs - longestIdleDurationNs;
             } else if (inUseConnectionCount > 0) {
                 // All connections are in use. It'll be at least the keep alive duration 'til we run again.
+                // 全部都是活跃的连接，5分钟后再次清理
                 return keepAliveDurationNs;
             } else {
                 // No connections, idle or in use.
+                // 没有任何连接，跳出循环
                 cleanupRunning = false;
                 return -1;
             }

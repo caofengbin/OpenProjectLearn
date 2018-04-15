@@ -815,6 +815,9 @@ public final class Cache implements Closeable, Flushable {
         }
     }
 
+    /**
+     * 用来进行响应体的读取
+     */
     private static class CacheResponseBody extends ResponseBody {
         final DiskLruCache.Snapshot snapshot;
         private final BufferedSource bodySource;

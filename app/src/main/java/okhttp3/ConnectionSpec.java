@@ -40,6 +40,7 @@ import static okhttp3.internal.Util.nonEmptyIntersection;
  *
  * <p>Use {@link Builder#allEnabledTlsVersions()} and {@link Builder#allEnabledCipherSuites} to
  * defer all feature selection to the underlying SSL socket.
+ * Socket连接的配置
  */
 public final class ConnectionSpec {
 
