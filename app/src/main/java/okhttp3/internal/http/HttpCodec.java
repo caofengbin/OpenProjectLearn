@@ -38,11 +38,13 @@ public interface HttpCodec {
 
     /**
      * Returns an output stream where the request body can be streamed.
+     * 写入请求的body信息
      */
     Sink createRequestBody(Request request, long contentLength);
 
     /**
      * This should update the HTTP engine's sentRequestMillis field.
+     * 写入请求头部信息的方法
      */
     void writeRequestHeaders(Request request) throws IOException;
 
@@ -53,11 +55,13 @@ public interface HttpCodec {
 
     /**
      * Flush the request to the underlying socket and signal no more bytes will be transmitted.
+     * 标识请求过程完成
      */
     void finishRequest() throws IOException;
 
     /**
      * Parses bytes of a response header from an HTTP transport.
+     * 读取响应的头信息
      *
      * @param expectContinue true to return null if this is an intermediate response with a "100"
      *                       response code. Otherwise this method never returns null.
@@ -66,6 +70,7 @@ public interface HttpCodec {
 
     /**
      * Returns a stream that reads the response body.
+     * 读取响应体body
      */
     ResponseBody openResponseBody(Response response) throws IOException;
 
