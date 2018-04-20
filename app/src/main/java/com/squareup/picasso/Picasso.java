@@ -183,6 +183,8 @@ public class Picasso {
 
         int builtInHandlers = 7; // Adjust this as internal handlers are added or removed.
         int extraCount = (extraRequestHandlers != null ? extraRequestHandlers.size() : 0);
+
+        // 非常重要
         List<RequestHandler> allRequestHandlers =
                 new ArrayList<RequestHandler>(builtInHandlers + extraCount);
 
@@ -198,6 +200,7 @@ public class Picasso {
         allRequestHandlers.add(new ContentStreamRequestHandler(context));
         allRequestHandlers.add(new AssetRequestHandler(context));
         allRequestHandlers.add(new FileRequestHandler(context));
+        // 通过网络处理图片
         allRequestHandlers.add(new NetworkRequestHandler(dispatcher.downloader, stats));
         requestHandlers = Collections.unmodifiableList(allRequestHandlers);
 

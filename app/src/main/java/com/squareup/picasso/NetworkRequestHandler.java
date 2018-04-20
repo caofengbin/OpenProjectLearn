@@ -17,6 +17,7 @@ package com.squareup.picasso;
 
 import android.graphics.Bitmap;
 import android.net.NetworkInfo;
+
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -25,68 +26,73 @@ import static com.squareup.picasso.Picasso.LoadedFrom.DISK;
 import static com.squareup.picasso.Picasso.LoadedFrom.NETWORK;
 
 class NetworkRequestHandler extends RequestHandler {
-  static final int RETRY_COUNT = 2;
+    static final int RETRY_COUNT = 2;
 
-  private static final String SCHEME_HTTP = "http";
-  private static final String SCHEME_HTTPS = "https";
+    private static final String SCHEME_HTTP = "http";
+    private static final String SCHEME_HTTPS = "https";
 
-  private final Downloader downloader;
-  private final Stats stats;
+    private final Downloader downloader;
+    private final Stats stats;
 
-  public NetworkRequestHandler(Downloader downloader, Stats stats) {
-    this.downloader = downloader;
-    this.stats = stats;
-  }
-
-  @Override public boolean canHandleRequest(Request data) {
-    String scheme = data.uri.getScheme();
-    return (SCHEME_HTTP.equals(scheme) || SCHEME_HTTPS.equals(scheme));
-  }
-
-  @Override public Result load(Request request, int networkPolicy) throws IOException {
-    Response response = downloader.load(request.uri, request.networkPolicy);
-    if (response == null) {
-      return null;
+    public NetworkRequestHandler(Downloader downloader, Stats stats) {
+        this.downloader = downloader;
+        this.stats = stats;
     }
 
-    Picasso.LoadedFrom loadedFrom = response.cached ? DISK : NETWORK;
-
-    Bitmap bitmap = response.getBitmap();
-    if (bitmap != null) {
-      return new Result(bitmap, loadedFrom);
+    @Override
+    public boolean canHandleRequest(Request data) {
+        String scheme = data.uri.getScheme();
+        return (SCHEME_HTTP.equals(scheme) || SCHEME_HTTPS.equals(scheme));
     }
 
-    InputStream is = response.getInputStream();
-    if (is == null) {
-      return null;
-    }
-    // Sometimes response content length is zero when requests are being replayed. Haven't found
-    // root cause to this but retrying the request seems safe to do so.
-    if (loadedFrom == DISK && response.getContentLength() == 0) {
-      Utils.closeQuietly(is);
-      throw new ContentLengthException("Received response with 0 content-length header.");
-    }
-    if (loadedFrom == NETWORK && response.getContentLength() > 0) {
-      stats.dispatchDownloadFinished(response.getContentLength());
-    }
-    return new Result(is, loadedFrom);
-  }
+    @Override
+    public Result load(Request request, int networkPolicy) throws IOException {
+        Response response = downloader.load(request.uri, request.networkPolicy);
+        if (response == null) {
+            return null;
+        }
 
-  @Override int getRetryCount() {
-    return RETRY_COUNT;
-  }
+        Picasso.LoadedFrom loadedFrom = response.cached ? DISK : NETWORK;
 
-  @Override boolean shouldRetry(boolean airplaneMode, NetworkInfo info) {
-    return info == null || info.isConnected();
-  }
+        Bitmap bitmap = response.getBitmap();
+        if (bitmap != null) {
+            return new Result(bitmap, loadedFrom);
+        }
 
-  @Override boolean supportsReplay() {
-    return true;
-  }
-
-  static class ContentLengthException extends IOException {
-    public ContentLengthException(String message) {
-      super(message);
+        InputStream is = response.getInputStream();
+        if (is == null) {
+            return null;
+        }
+        // Sometimes response content length is zero when requests are being replayed. Haven't found
+        // root cause to this but retrying the request seems safe to do so.
+        if (loadedFrom == DISK && response.getContentLength() == 0) {
+            Utils.closeQuietly(is);
+            throw new ContentLengthException("Received response with 0 content-length header.");
+        }
+        if (loadedFrom == NETWORK && response.getContentLength() > 0) {
+            stats.dispatchDownloadFinished(response.getContentLength());
+        }
+        return new Result(is, loadedFrom);
     }
-  }
+
+    @Override
+    int getRetryCount() {
+        return RETRY_COUNT;
+    }
+
+    @Override
+    boolean shouldRetry(boolean airplaneMode, NetworkInfo info) {
+        return info == null || info.isConnected();
+    }
+
+    @Override
+    boolean supportsReplay() {
+        return true;
+    }
+
+    static class ContentLengthException extends IOException {
+        public ContentLengthException(String message) {
+            super(message);
+        }
+    }
 }
